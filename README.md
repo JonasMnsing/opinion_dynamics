@@ -1,1 +1,1 @@
-# opinion_dynamics
+# Opinion Dynamics
