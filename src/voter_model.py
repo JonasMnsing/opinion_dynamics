@@ -56,7 +56,7 @@ if __name__ == '__main__':
 
     N_agents    = 100
     N_iter      = 10000
-    p_con       = 0.05
+    p_con       = 0.1
     avg_opinion = np.zeros(N_iter)
     int_density = np.zeros(N_iter)
     opinions    = initialize_opinions(N_agents)
@@ -67,6 +67,6 @@ if __name__ == '__main__':
         avg_opinion[i]  = average_opinion(opinions)
         int_density[i]  = interface_density(opinions, con_matrix)
 
-    np.save(f"data/avg_opinion_p={p_con}", avg_opinion)
-    np.save(f"data/int_density_p={p_con}", int_density)
-    np.save(f"data/connection_matrix_p={p_con}", con_matrix)
+    np.save(f"data/avg_opinion", avg_opinion)
+    np.save(f"data/int_density", int_density)
+    np.save(f"data/connection_matrix", con_matrix)

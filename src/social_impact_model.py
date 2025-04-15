@@ -91,7 +91,7 @@ def interface_density(opinions, connection_matrix):
 if __name__ == '__main__':
 
     N_agents    = 100
-    N_iter      = 1000
+    N_iter      = 200
     p_con       = 0.1
     noise       = 0.0
     avg_opinion = np.zeros(N_iter)
