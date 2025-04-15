@@ -1,1 +1,1 @@
-# Opinion Dynamics
+# Opinion Dynamics.
