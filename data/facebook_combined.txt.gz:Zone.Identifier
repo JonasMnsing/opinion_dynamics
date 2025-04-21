@@ -1,0 +1,4 @@
+[ZoneTransfer]
+ZoneId=3
+ReferrerUrl=https://snap.stanford.edu/data/ego-Facebook.html
+HostUrl=https://snap.stanford.edu/data/facebook_combined.txt.gz
