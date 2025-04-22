@@ -17,9 +17,16 @@ def voter_interaction(opinions, connection_matrix):
     Let agent i adopt the opinion of agent j.
     """
 
-    return None
+    return opinions
 
 # Simulation
 if __name__ == '__main__':
 
-    pass
+    N_agents    = 50                                        # Number of Agents
+    N_inter     = 1000                                      # Number of Interactions
+    p_con       = 0.1                                       # Probability for a connection
+    opinions    = initialize_opinions(N_agents)             # Initialize Opinions
+    con_matrix  = random_connection_matrix(N_agents, p_con) # Initialize Network
+
+    for i in range(N_agents):
+        opinions    = voter_interaction(opinions, con_matrix)
