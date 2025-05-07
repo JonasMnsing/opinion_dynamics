@@ -1,8 +1,25 @@
 import numpy as np
+import networkx as nx
 
 def initialize_opinions(N_agents):
     """Initialize agents with random opinions (-1 and 1)."""
     return np.random.choice([-1,1], size=N_agents)
+
+def connected_erdos_renyi(N_agents, p):
+    """Generate a random adjacency matrix from a binomial graph with probability p for an edge connection"""
+    while True:
+        G = nx.erdos_renyi_graph(N_agents, p)
+        if nx.is_connected(G):
+            break
+    return nx.to_numpy_array(G, dtype=int)
+
+def small_world_graph(N_agents, k=4, beta=0.1):
+    G = nx.watts_strogatz_graph(N_agents, k, beta)
+    return nx.to_numpy_array(G, dtype=int)
+
+def scale_free_graph(N, m=2):
+    G = nx.barabasi_albert_graph(N, m)
+    return nx.to_numpy_array(G, dtype=int)
 
 def random_connection_matrix(N_agents, p):
     """Generate a symmetric random adjacency matrix where each edge (i,j) exists with probability p."""
@@ -20,14 +37,19 @@ def random_connection_matrix(N_agents, p):
     
     return connection_matrix
 
-def voter_interaction(opinions, connection_matrix):
+def voter_interaction(opinions, connection_matrix, p_noise=0.0):
     """One interaction: pick a random agent (i) and adopt a connected neighbor's (j) opinion."""
 
     N_agents    = len(opinions)                         # Number of Agents
     i           = np.random.randint(0, N_agents)        # Sample agent i
-    neighbors   = np.where(connection_matrix[i]==1)[0]  # Find all neighbors
-    j           = np.random.choice(neighbors)           # Sample neighbor j
-    opinions[i] = opinions[j]                           # Adopt Opinion
+    
+    if np.random.rand() < p_noise:
+        opinions[i] *= -1
+    else:
+        neighbors   = np.where(connection_matrix[i]==1)[0]  # Find all neighbors
+        if len(neighbors) > 0:
+            j           = np.random.choice(neighbors)           # Sample neighbor j
+            opinions[i] = opinions[j]                           # Adopt Opinion
 
     return opinions
 
@@ -60,7 +82,7 @@ if __name__ == '__main__':
     avg_opinion = np.zeros(N_iter)
     int_density = np.zeros(N_iter)
     opinions    = initialize_opinions(N_agents)
-    con_matrix  = random_connection_matrix(N_agents,p_con)
+    con_matrix  = connected_erdos_renyi(N_agents,p_con)
 
     for i in range(N_iter):
         opinions        = voter_interaction(opinions, con_matrix)

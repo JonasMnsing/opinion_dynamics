@@ -7,7 +7,6 @@ def initialize_opinions(N_agents):
 def initialize_properties(N_agents):
     """Initialize agent properties persuasiveness and suportiveness
     """
-
     p   = np.random.rand(N_agents)
     s   = np.random.rand(N_agents)
 
