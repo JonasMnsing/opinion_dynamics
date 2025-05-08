@@ -30,3 +30,5 @@ if __name__ == '__main__':
 
     for i in range(N_agents):
         opinions    = voter_interaction(opinions, con_matrix)
+
+    np.save("file_name.npy", opinions)
