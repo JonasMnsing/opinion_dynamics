@@ -79,13 +79,14 @@ if __name__ == '__main__':
     N_agents    = 100
     N_iter      = 10000
     p_con       = 0.1
+    p_noise     = 0.1
     avg_opinion = np.zeros(N_iter)
     int_density = np.zeros(N_iter)
     opinions    = initialize_opinions(N_agents)
     con_matrix  = connected_erdos_renyi(N_agents,p_con)
 
     for i in range(N_iter):
-        opinions        = voter_interaction(opinions, con_matrix)
+        opinions        = voter_interaction(opinions, con_matrix, p_noise)
         avg_opinion[i]  = average_opinion(opinions)
         int_density[i]  = interface_density(opinions, con_matrix)
 
