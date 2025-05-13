@@ -10,8 +10,8 @@ from tqdm import tqdm
 N_list          = [10, 20, 40, 80, 160, 320, 640]
 p_conn_list     = [0.01, 0.02, 0.04, 0.08, 0.016]
 p_noise_list    = [0.0, 0.01, 0.02, 0.04, 0.08]
-n_runs          = 100
-max_steps       = 100000
+n_runs          = 50
+max_steps       = 10000
 n_processes     = 10
 path            = "data"
 
