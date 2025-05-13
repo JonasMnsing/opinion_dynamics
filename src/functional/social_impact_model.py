@@ -28,23 +28,6 @@ def random_connection_matrix(N_agents, p):
     
     return connection_matrix
 
-# def nearest_neighbor_impact(impact, opinions, pressure, support, connection_matrix):
-#     """Calculate the social impact on each agent
-#     """
-    
-#     for i,val_i in enumerate(opinions):
-#         pressure_part   = 0
-#         support_part    = 0
-#         neighbors       = np.where(connection_matrix[i]==1)[0]
-
-#         for j in neighbors:
-#             pressure_part   += pressure[j]*(1-val_i*opinions[j])
-#             support_part    += support[j]*(1+val_i*opinions[j])
-
-#         impact[i]   = pressure_part - support_part
-
-#     return impact
-
 def nearest_neighbor_impact_interaction(opinions, pressure, support, connection_matrix, noise=0.01):
     """Calculates social impact for one agent and updates its opiniong given impact and noise
     """

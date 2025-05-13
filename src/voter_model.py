@@ -118,7 +118,7 @@ class OpinionDynamicsModel:
         times: List[int]            = []
         m_trajs: List[np.ndarray]   = []
         rho_trajs: List[np.ndarray] = []
-        
+
         for m, rho, t in results:
             m_trajs.append(m)
             rho_trajs.append(rho)
@@ -132,9 +132,13 @@ class OpinionDynamicsModel:
         }
     
 def connected_erdos_renyi(N_agents: int, p: float) -> np.ndarray:
-    """Generate a connected Erdős–Rényi graph adjacency matrix."""
+    """Generate a connected Erdős–Rényi graph adjacency matrix, with iteration limit."""
+    attempt = 0
     while True:
+        if attempt >= 100000:
+            raise RuntimeError(f"Failed to generate connected ER graph after {attempt} attempts")
         G = nx.erdos_renyi_graph(N_agents, p)
+        attempt += 1
         if nx.is_connected(G):
             break
     return nx.to_numpy_array(G, dtype=int)
