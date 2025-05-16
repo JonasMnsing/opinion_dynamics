@@ -126,7 +126,6 @@ class OpinionDynamicsModel:
 
         return {
             'times': times,
-            'mean_time': float(np.mean(times)),
             'm_trajs': m_trajs,
             'rho_trajs': rho_trajs
         }

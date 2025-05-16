@@ -1,67 +1,34 @@
 import os
 import numpy as np
-import pandas as pd
 import sys
 sys.path.append("src/")
 from voter_model import OpinionDynamicsModel, connected_erdos_renyi
 from tqdm import tqdm
 
 # --- Parameter sweep configuration ---
-N_list          = [40, 80, 160, 320, 640]
-p_conn_list     = [0.08, 0.16, 0.32, 0.32]
+p_conn_list     = [0.1, 0.11, 0.12, 0.13, 0.14, 0.15, 0.16, 0.17, 0.18, 0.19, 0.2]
 p_noise_list    = [0.0, 0.01, 0.02, 0.04, 0.08]
 n_runs          = 50
-max_steps       = 10000
+N               = 50
+max_steps       = 1000
 n_processes     = 10
 path            = "data"
 
 # Ensure output directory exists
 os.makedirs(path, exist_ok=True)
 
-# Collect results in a list of dicts
-all_results = []
+results = []
+params  = []
 
-for N in tqdm(N_list):
-    for p_conn in p_conn_list:
-        for p_noise in p_noise_list:
-            model = OpinionDynamicsModel(N_agents=N, graph_fn=connected_erdos_renyi,
-                                         graph_kwargs={'p': p_conn}, p_noise=p_noise)
-            stats = model.ensemble_stats(n_runs=n_runs, max_steps=max_steps,
-                                         stop_on_consensus=True, n_processes=n_processes)
-            
-            frac_consensus = np.mean([t < max_steps for t in stats['times']])
-            all_results.append({
-                'N': N,
-                'p_connection': p_conn,
-                'p_noise': p_noise,
-                'mean_consensus_time': stats['mean_time'],
-                'fraction_consensus': frac_consensus
-            })
+for p_conn in tqdm(p_conn_list):
+    for p_noise in p_noise_list:
+        model = OpinionDynamicsModel(N_agents=N, graph_fn=connected_erdos_renyi,
+                                        graph_kwargs={'p': p_conn}, p_noise=p_noise)
+        stats = model.ensemble_stats(n_runs=n_runs, max_steps=max_steps,
+                                        stop_on_consensus=False, n_processes=n_processes)
+        
+        results.append(stats['m_trajs'])
+        params.append([p_conn, p_noise])
 
-# Convert to DataFrame
-df = pd.DataFrame(all_results)
-
-# Save raw results
-df.to_csv('data/connected_erdos_renyi_results.csv', index=False)
-
-# Pivot tables
-pivot_time = df.pivot_table(
-    index=['N', 'p_connection'],
-    columns='p_noise',
-    values='mean_consensus_time'
-)
-pivot_prob = df.pivot_table(
-    index=['N', 'p_connection'],
-    columns='p_noise',
-    values='fraction_consensus'
-)
-
-# Save pivot tables
-pivot_time.to_csv('data/connected_erdos_renyi_pivot_time.csv')
-pivot_prob.to_csv('data/connected_erdos_renyi_pivot_prob.csv')
-
-# Display summaries
-print("Mean consensus time (by N, p_connection, p_noise):")
-print(pivot_time)
-print("\nConsensus probability (fraction reaching consensus):")
-print(pivot_prob)
+np.save(f"data/voter/m_trajs.npy", np.array(results))
+np.save(f"data/voter/params.npy", np.array(params))
