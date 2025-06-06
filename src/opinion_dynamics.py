@@ -1,7 +1,7 @@
 import numpy as np
 import networkx as nx
 import multiprocessing as mp
-from typing import Callable, Optional, Dict, Any, List, Tuple
+from typing import Callable, Optional, Dict, Any, Tuple
 
 class OpinionDynamicsModel:
     """A continuous-opinion social impact model on networks, including distance-weighted influence.
@@ -17,7 +17,7 @@ class OpinionDynamicsModel:
             pressure: Optional[np.ndarray] = None,
             support: Optional[np.ndarray] = None,
             beta: float = 1.0,
-            alpha: float = 1.0,
+            alpha: float = 2.0,
             distance_cutoff: int = 10):
         """
         Parameters
@@ -101,8 +101,37 @@ class OpinionDynamicsModel:
     def average_opinion(self) -> float:
         """Compute the global mean opinion (magnetization)."""
         return float(np.mean(self.opinions))
+    
+    def spatial_correlation(self) -> np.ndarray:
+        """
+        Compute spatial correlation C(d) = ⟨ x_i * x_j ⟩ averaged over all pairs (i, j)
+        whose shortest-path distance dist_matrix[i,j] == d (finite).
+
+        Returns
+        -------
+        corrs
+            Dict mapping distance d (int) to average correlation C(d).
+        """
+
+        # Determine maximum finite distance
+        finite_dists    = self.dist_matrix[np.isfinite(self.dist_matrix)]
+        max_d           = int(finite_dists.max())
+
+        # Precompute outer product of opinions
+        products = self.opinions[:,None]*self.opinions[None,:]
         
-    def run_trajectory(self, max_steps: int = 100000, stop_on_consensus: bool = True) -> Tuple[np.ndarray, np.ndarray, int]:
+        corrs = []
+        corrs.append(1.0)
+        for d in range(1, max_d+1):
+            mask    = (self.dist_matrix==d)
+            values  = products[mask]
+            if values.size == 0:
+                corrs.append(0.0)
+            else:
+                corrs.append(float(np.mean(values)))
+        return np.array(corrs)
+        
+    def run_trajectory(self, max_steps: int = 100000, stop_on_consensus: bool = True) -> Tuple[np.ndarray, int]:
         """
         Run a single dynamics trajectory.
 
@@ -125,7 +154,7 @@ class OpinionDynamicsModel:
 
         return np.array(m_list), t
     
-    def _worker_run(self, args: Tuple[int, bool]) -> Tuple[np.ndarray,np.ndarray,int]:
+    def _worker_run(self, args: Tuple[int, bool]) -> Tuple[np.ndarray,int]:
         """Helper for multiprocessing: runs one trajectory."""
         max_steps, stop_on_consensus = args
         return self.run_trajectory(max_steps, stop_on_consensus)
