@@ -110,7 +110,7 @@ class OpinionDynamicsModel:
         Returns
         -------
         corrs
-            Dict mapping distance d (int) to average correlation C(d).
+            Array of spatial correlations
         """
 
         # Determine maximum finite distance
