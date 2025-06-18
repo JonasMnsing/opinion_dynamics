@@ -86,7 +86,7 @@ class OpinionDynamicsModel:
 
         # Social impcat on agent i
         pressure_part   = np.sum(weights * self.pressure * (1 - x_i * x_vec))
-        support_part    = np.sum(weights * self.pressure * (1 + x_i * x_vec))
+        support_part    = np.sum(weights * self.support * (1 + x_i * x_vec))
         social_impact   = pressure_part - support_part
 
         # Add a random field
@@ -94,9 +94,9 @@ class OpinionDynamicsModel:
         F_i = x_i * social_impact + h
 
         if np.isinf(self.beta):
-            self.opinions[i] = np.sign(F_i)
+            self.opinions[i] = -np.sign(F_i)
         else:
-            self.opinions[i] = np.tanh(self.beta * F_i)
+            self.opinions[i] = -np.tanh(self.beta * F_i)
     
     def average_opinion(self) -> float:
         """Compute the global mean opinion (magnetization)."""
