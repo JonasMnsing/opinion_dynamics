@@ -87,7 +87,7 @@ class OpinionDynamicsModel:
         # Social impcat on agent i
         pressure_part   = np.sum(weights * self.pressure * (1 - x_i * x_vec))
         support_part    = np.sum(weights * self.support * (1 + x_i * x_vec))
-        social_impact   = pressure_part - support_part
+        social_impact   = support_part - pressure_part
 
         # Add a random field
         h   = np.random.uniform(-self.p_noise,self.p_noise)
