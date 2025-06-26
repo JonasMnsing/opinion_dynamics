@@ -70,6 +70,7 @@ class OpinionDynamicsModel:
     
     def initialize_opinions(self) -> np.ndarray:
         """Draw random continuous opinions in [-1 or +1]."""
+        # return np.random.choice([-1, 1], size=self.N)
         return np.random.uniform(-1, 1, size=self.N)
     
     def agent_interaction(self) -> None:
