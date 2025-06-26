@@ -14,8 +14,6 @@ class OpinionDynamicsModel:
             graph_fn: Callable[...,np.ndarray],
             graph_kwargs: Optional[Dict[str, Any]] = None,
             p_noise: float = 0.0,
-            pressure: Optional[np.ndarray] = None,
-            support: Optional[np.ndarray] = None,
             beta: float = 1.0,
             alpha: float = 2.0,
             distance_cutoff: int = 10):
@@ -30,8 +28,6 @@ class OpinionDynamicsModel:
             Keyword arguments for graph_fn.
         p_noise
             Noise range: uniform in [-p_noise,p_noise].
-        pressure, support
-            Arrays of persuasiveness/supportiveness. If None, defaults to ones.
         beta
             Gain parameter for tanh update. beta=np.inf recovers discrete flips.
         alpha
@@ -40,13 +36,19 @@ class OpinionDynamicsModel:
             Maximum graph-distance to include in the "social impact" sum.
             Any j with d_{ij} > distance_cutoff will be treated as if distance=inf (i.e. weight=0)
         """
-        self.N              = N_agents
-        self.graph_fn       = graph_fn
-        self.graph_kwargs   = graph_kwargs or {}
-        self.p_noise        = p_noise
-        self.alpha          = alpha
-        self.beta           = beta
+        self.N                  = N_agents
+        self.graph_fn           = graph_fn
+        self.graph_kwargs       = graph_kwargs or {}
+        self.p_noise            = p_noise
+        self.alpha              = alpha
+        self.beta               = beta
+        self.distance_cutoff    = distance_cutoff
 
+        # initialize all random structures
+        self.initialize_all()
+
+    def initialize_all(self):
+        """(Re)initialize network, distances, pressure/support, and opinions."""
         # Build adjacency matrix
         self.connection_matrix  = self.graph_fn(self.N, **self.graph_kwargs)
 
@@ -55,23 +57,29 @@ class OpinionDynamicsModel:
         
         # Precompute all-pairs shortest path legnths (with cutoff) as a 2D array
         self.dist_matrix = np.full((self.N, self.N), np.inf)
-        for i, lengths in nx.all_pairs_shortest_path_length(G,cutoff=distance_cutoff):
+        for i, lengths in nx.all_pairs_shortest_path_length(G,cutoff=self.distance_cutoff):
             for j, d in lengths.items():
                 self.dist_matrix[i,j] = d
         # Ensure self-distance is infinite (so we skip i->i)
         np.fill_diagonal(self.dist_matrix, np.inf)
 
         # Set pressure and support arrays
-        self.pressure   = pressure if pressure is not None else np.ones(N_agents)
-        self.support    = support if support is not None else np.ones(N_agents)
+        self.pressure   = np.random.uniform(-1,1,self.N)
+        self.support    = np.random.uniform(-1,1,self.N)
         
-        # Initialize continuous opinions in [-1,1]            
-        self.opinions   = self.initialize_opinions()
+        # Initialize opinions
+        if np.isinf(self.beta):
+            self.opinions   = self.initialize_discrete_opinions()
+        else:         
+            self.opinions   = self.initialize_opinions()
     
     def initialize_opinions(self) -> np.ndarray:
         """Draw random continuous opinions in [-1 or +1]."""
-        # return np.random.choice([-1, 1], size=self.N)
         return np.random.uniform(-1, 1, size=self.N)
+    
+    def initialize_discrete_opinions(self) -> np.ndarray:
+        """Draw opinions from {-1,+1}"""
+        return np.random.choice([-1,1], size=self.N)
     
     def agent_interaction(self) -> None:
         """Perform one asynchronous update using tanh beta-gain."""
@@ -88,7 +96,7 @@ class OpinionDynamicsModel:
         # Social impcat on agent i
         pressure_part   = np.sum(weights * self.pressure * (1 - x_i * x_vec))
         support_part    = np.sum(weights * self.support * (1 + x_i * x_vec))
-        social_impact   = support_part - pressure_part
+        social_impact   = pressure_part - support_part
 
         # Add a random field
         h   = np.random.uniform(-self.p_noise,self.p_noise)
@@ -132,7 +140,7 @@ class OpinionDynamicsModel:
                 corrs.append(float(np.mean(values)))
         return np.array(corrs)
         
-    def run_trajectory(self, max_steps: int = 100000, stop_on_consensus: bool = True) -> Tuple[np.ndarray, int]:
+    def run_trajectory(self, max_steps: int = 1000, stop_on_consensus: bool = False) -> Tuple[np.ndarray, int]:
         """
         Run a single dynamics trajectory.
 
@@ -144,24 +152,30 @@ class OpinionDynamicsModel:
             Time-step at which simulation stopped.
         """
         # Reset opinions
-        self.opinions   = self.initialize_opinions()
+        np.random.seed()
+        self.initialize_all()
+
         m_list          = []
+        opinion_list    = []
+        corr_list       = []
 
         for t in range(1, max_steps + 1):
             self.agent_interaction()
             m_list.append(self.average_opinion())
+            opinion_list.append(self.opinions.copy())
+            corr_list.append(self.spatial_correlation())
             if stop_on_consensus and abs(m_list[-1]) == 1.0:
                 break
 
-        return np.array(m_list), t
+        return np.array(m_list), np.array(opinion_list), np.array(corr_list), t
     
     def _worker_run(self, args: Tuple[int, bool]) -> Tuple[np.ndarray,int]:
         """Helper for multiprocessing: runs one trajectory."""
         max_steps, stop_on_consensus = args
         return self.run_trajectory(max_steps, stop_on_consensus)
     
-    def ensemble_stats(self, n_runs: int = 50, max_steps: int = 100000,
-                       stop_on_consensus: bool = True, n_processes: Optional[int] = None) -> Dict[str, Any]:
+    def ensemble_stats(self, n_runs: int = 50, max_steps: int = 1000,
+                       stop_on_consensus: bool = False, n_processes: Optional[int] = None) -> Dict[str, Any]:
         """
         Run multiple independent trajectories (optionally in parallel) and collect statistics.
 
@@ -186,16 +200,22 @@ class OpinionDynamicsModel:
             results = list(map(self._worker_run, args_list))
 
         # Unpack results
-        times       = []
-        m_trajs     = []
+        times   = []
+        m_trajs = []
+        o_traj  = []
+        c_traj  = []
 
-        for m, t in results:
+        for m, o, c, t in results:
             m_trajs.append(m)
+            o_traj.append(o)
+            c_traj.append(c)
             times.append(t)
 
         return {
             'times': times,
             'm_trajs': m_trajs,
+            'o_trajs': o_traj,
+            'c_trajs': c_traj
         }
     
 def connected_erdos_renyi(N_agents: int, p: float) -> np.ndarray:
