@@ -19,6 +19,7 @@ os.makedirs(path, exist_ok=True)
 
 m_traj  = []
 o_traj  = []
+c_traj  = []
 params  = []
 
 for p in tqdm(p_small_world):
@@ -29,8 +30,10 @@ for p in tqdm(p_small_world):
     
     m_traj.append(stats['m_trajs'])
     o_traj.append(stats['o_trajs'])
+    c_traj.append(stats['c_trajs'])
     params.append([N, n_runs, p])
 
 np.save(f"{path}small_world.npy", np.array(m_traj))
 np.save(f"{path}small_world_opinion.npy", np.array(o_traj))
+np.save(f"{path}small_world_corr.npy", np.array(c_traj,dtype=object))
 np.save(f"{path}small_world_params.npy", np.array(params))
