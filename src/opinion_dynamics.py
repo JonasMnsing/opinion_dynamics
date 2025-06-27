@@ -49,11 +49,9 @@ class OpinionDynamicsModel:
 
     def initialize_all(self):
         """(Re)initialize network, distances, pressure/support, and opinions."""
-        # Build adjacency matrix
-        self.connection_matrix  = self.graph_fn(self.N, **self.graph_kwargs)
-
-        # Build a NetworkX graph from adjacency
-        G = nx.from_numpy_array(self.connection_matrix)
+        # Build adjacency matrix and network
+        A = self.graph_fn(self.N, **self.graph_kwargs)
+        G = nx.from_numpy_array(A)
         
         # Precompute all-pairs shortest path legnths (with cutoff) as a 2D array
         self.dist_matrix = np.full((self.N, self.N), np.inf)
@@ -62,6 +60,10 @@ class OpinionDynamicsModel:
                 self.dist_matrix[i,j] = d
         # Ensure self-distance is infinite (so we skip i->i)
         np.fill_diagonal(self.dist_matrix, np.inf)
+
+        # Precompute weights
+        self.weights = 1.0 / (self.dist_matrix ** self.alpha)
+        self.weights[np.isinf(self.weights)] = 0.0
 
         # Set pressure and support arrays
         self.pressure   = np.random.uniform(-1,1,self.N)
@@ -90,8 +92,7 @@ class OpinionDynamicsModel:
         x_vec   = self.opinions
 
         # Distance based weights
-        dists       = self.dist_matrix[i,:]
-        weights     = 1/(dists**self.alpha)
+        weights = self.weights[i,:]
 
         # Social impcat on agent i
         pressure_part   = np.sum(weights * self.pressure * (1 - x_i * x_vec))
@@ -110,37 +111,8 @@ class OpinionDynamicsModel:
     def average_opinion(self) -> float:
         """Compute the global mean opinion (magnetization)."""
         return float(np.mean(self.opinions))
-    
-    def spatial_correlation(self) -> np.ndarray:
-        """
-        Compute spatial correlation C(d) = ⟨ x_i * x_j ⟩ averaged over all pairs (i, j)
-        whose shortest-path distance dist_matrix[i,j] == d (finite).
-
-        Returns
-        -------
-        corrs
-            Array of spatial correlations
-        """
-
-        # Determine maximum finite distance
-        finite_dists    = self.dist_matrix[np.isfinite(self.dist_matrix)]
-        max_d           = int(finite_dists.max())
-
-        # Precompute outer product of opinions
-        products = self.opinions[:,None]*self.opinions[None,:]
-        
-        corrs = []
-        corrs.append(1.0)
-        for d in range(1, max_d+1):
-            mask    = (self.dist_matrix==d)
-            values  = products[mask]
-            if values.size == 0:
-                corrs.append(0.0)
-            else:
-                corrs.append(float(np.mean(values)))
-        return np.array(corrs)
-        
-    def run_trajectory(self, max_steps: int = 1000, stop_on_consensus: bool = False) -> Tuple[np.ndarray, int]:
+            
+    def run_trajectory(self, max_steps: int = 1000, stop_on_consensus: bool = False) -> Tuple[np.ndarray, np.ndarray, int]:
         """
         Run a single dynamics trajectory.
 
@@ -148,6 +120,8 @@ class OpinionDynamicsModel:
         -------
         m_list
             Array of average opinion over time.
+        opinion_list
+            Array containg all opinions in each time step
         t
             Time-step at which simulation stopped.
         """
@@ -157,17 +131,15 @@ class OpinionDynamicsModel:
 
         m_list          = []
         opinion_list    = []
-        corr_list       = []
 
         for t in range(1, max_steps + 1):
             self.agent_interaction()
             m_list.append(self.average_opinion())
             opinion_list.append(self.opinions.copy())
-            corr_list.append(self.spatial_correlation())
             if stop_on_consensus and abs(m_list[-1]) == 1.0:
                 break
 
-        return np.array(m_list), np.array(opinion_list), np.array(corr_list), t
+        return np.array(m_list), np.array(opinion_list), t
     
     def _worker_run(self, args: Tuple[int, bool]) -> Tuple[np.ndarray,int]:
         """Helper for multiprocessing: runs one trajectory."""
@@ -203,19 +175,16 @@ class OpinionDynamicsModel:
         times   = []
         m_trajs = []
         o_traj  = []
-        c_traj  = []
 
-        for m, o, c, t in results:
+        for m, o, t in results:
             m_trajs.append(m)
             o_traj.append(o)
-            c_traj.append(c)
             times.append(t)
 
         return {
             'times': times,
             'm_trajs': m_trajs,
             'o_trajs': o_traj,
-            'c_trajs': c_traj
         }
     
 def connected_erdos_renyi(N_agents: int, p: float) -> np.ndarray:
@@ -241,3 +210,33 @@ def scale_free_graph(N_agents: int, m: int = 2) -> np.ndarray:
     """Generate a Barabási–Albert scale-free graph adjacency matrix."""
     G = nx.barabasi_albert_graph(N_agents, m)
     return nx.to_numpy_array(G, dtype=int)
+
+def spatial_correlation(opinions, dist_matrix) -> np.ndarray:
+    """
+    Compute spatial correlation C(d) = ⟨ x_i * x_j ⟩ averaged over all pairs (i, j)
+    whose shortest-path distance dist_matrix[i,j] == d (finite).
+
+    Returns
+    -------
+    corrs
+        Array of spatial correlations
+    """
+
+    # Determine maximum finite distance
+    finite_dists    = dist_matrix[np.isfinite(dist_matrix)]
+    max_d           = int(finite_dists.max())
+
+    # Precompute outer product of opinions
+    products = opinions[:,None]*opinions[None,:]
+    
+    corrs = []
+    corrs.append(1.0)
+    for d in range(1, max_d+1):
+        mask    = (dist_matrix==d)
+        values  = products[mask]
+        if values.size == 0:
+            corrs.append(0.0)
+        else:
+            corrs.append(float(np.mean(values)))
+
+    return np.array(corrs)
