@@ -39,7 +39,7 @@ def compute_distances_and_weights(connection_matrix, N_agents, alpha=2, cutoff=1
 
     return w
 
-def social_impact_interaction(opinions, weights, pressure, support, beta=1.0, p_noise=0.1):
+def social_impact_interaction(opinions, opinion_media, weights, pressure, support, pressure_media, support_media, beta=1.0, p_noise=0.1):
     """Sample an agent index (i) and one of its connected neighbors (j) at random.
     Update opinion according to the social impact rule.
     """
@@ -55,9 +55,17 @@ def social_impact_interaction(opinions, weights, pressure, support, beta=1.0, p_
     p_term  = np.sum(w_row * pressure * (1 - x_i * opinions))
     s_term  = np.sum(w_row * support  * (1 + x_i * opinions))
     F_i     = x_i*(p_term - s_term) + np.random.uniform(-p_noise, p_noise)
+    
+    # Media impact
+    p_media = pressure_media*(1 - x_i*opinion_media)
+    s_media = support_media*(1 + x_i*opinion_media)
+    F_media = p_media - s_media
+
+    # Total impact
+    F_t = F_i + F_media
 
     # New Opinion of i based on impact and noise
-    opinions[i] = -np.tanh(beta * F_i)
+    opinions[i] = -np.tanh(beta * F_t)
 
     return opinions
 
@@ -71,6 +79,10 @@ if __name__ == '__main__':
     beta        = 1.0   # beta inside tanh function
     p_noise     = 0.1   # Noise boundary
     o_list      = []    # Container for each run
+    
+    pressure_media  = 1.0   # Mass Media pressue
+    support_media   = 1.0   # Mass Media support
+    opinion_media   = 0.5   # Media Opinion
 
     for n in range(N_runs):
         # Inside each run we need to reinitialize our states
@@ -82,7 +94,7 @@ if __name__ == '__main__':
         o_runs      = []                                                    # Container for opinions in time given a run
 
         for i in range(N_inter):
-            opinions = social_impact_interaction(opinions, weights, pressure, support, beta, p_noise)
+            opinions = social_impact_interaction(opinions, opinion_media, weights, pressure, support, pressure_media, support_media, beta, p_noise)
             o_runs.append(opinions.copy()) # important to use copy!!! 
         
         o_list.append(o_runs)

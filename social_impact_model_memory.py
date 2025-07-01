@@ -39,7 +39,7 @@ def compute_distances_and_weights(connection_matrix, N_agents, alpha=2, cutoff=1
 
     return w
 
-def social_impact_interaction(opinions, weights, pressure, support, beta=1.0, p_noise=0.1):
+def social_impact_interaction(opinions, weights, pressure, support, prev_I, beta=1.0, p_noise=0.1, tau_imp=100.0):
     """Sample an agent index (i) and one of its connected neighbors (j) at random.
     Update opinion according to the social impact rule.
     """
@@ -54,9 +54,14 @@ def social_impact_interaction(opinions, weights, pressure, support, beta=1.0, p_
     # Social impact
     p_term  = np.sum(w_row * pressure * (1 - x_i * opinions))
     s_term  = np.sum(w_row * support  * (1 + x_i * opinions))
-    F_i     = x_i*(p_term - s_term) + np.random.uniform(-p_noise, p_noise)
+    I_new   = x_i*(p_term - s_term)
+    
+    # total impact = new + decayed past
+    I_tot       = I_new + np.exp(-1.0/tau_imp) * prev_I[i]
+    prev_I[i]   = I_tot
 
     # New Opinion of i based on impact and noise
+    F_i         = I_tot + np.random.uniform(-p_noise, p_noise)
     opinions[i] = -np.tanh(beta * F_i)
 
     return opinions
@@ -70,6 +75,7 @@ if __name__ == '__main__':
     p_con       = 0.1   # Probability for a connection
     beta        = 1.0   # beta inside tanh function
     p_noise     = 0.1   # Noise boundary
+    tau_imp     = 100.0 # Past impact decay scaling
     o_list      = []    # Container for each run
 
     for n in range(N_runs):
@@ -77,12 +83,13 @@ if __name__ == '__main__':
         opinions    = np.random.uniform(-1,1,N_agents)                      # Initialize Opinions
         support     = np.random.uniform(-1,1,N_agents)                      # Initialize Support
         pressure    = np.random.uniform(-1,1,N_agents)                      # Initialize Pressure
+        prev_I      = np.zeros(N_agents)
         con_matrix  = connected_erdos_renyi(N_agents, p_con)                # Initialize Network
         weights     = compute_distances_and_weights(con_matrix, N_agents)   # Pre compute weights for speed
         o_runs      = []                                                    # Container for opinions in time given a run
 
         for i in range(N_inter):
-            opinions = social_impact_interaction(opinions, weights, pressure, support, beta, p_noise)
+            opinions = social_impact_interaction(opinions, weights, pressure, support, prev_I, beta, p_noise, tau_imp)
             o_runs.append(opinions.copy()) # important to use copy!!! 
         
         o_list.append(o_runs)
